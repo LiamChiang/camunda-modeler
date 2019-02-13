@@ -96,8 +96,13 @@ export class BpmnEditor extends CachedComponent {
     this._isMounted = true;
 
     const {
-      layout
+      layout,
+      xml
     } = this.props;
+
+    const {
+      lastXML
+    } = this.getCached();
 
     const modeler = this.getModeler();
 
@@ -124,7 +129,9 @@ export class BpmnEditor extends CachedComponent {
       }
     }
 
-    this.checkImport();
+    if (!isImporting(this.state) && xml !== lastXML) {
+      await this.importXML();
+    }
 
     this.handleResize();
   }
@@ -143,9 +150,9 @@ export class BpmnEditor extends CachedComponent {
     propertiesPanel.detach();
   }
 
-  componentDidUpdate(prevProps) {
-    if (!isImporting(this.state) && isXMLChange(prevProps.xml, this.props.xml)) {
-      this.checkImport();
+  async componentDidUpdate(prevProps) {
+    if (!isImporting(this.state) && prevProps.xml !== this.props.xml) {
+      await this.importXML();
     }
 
     if (isCacheStateChanged(prevProps, this.props)) {
@@ -391,21 +398,20 @@ export class BpmnEditor extends CachedComponent {
     return commandStack._stackIdx !== stackIdx;
   }
 
-  async checkImport() {
+  async importXML() {
     const {
-      lastXML,
       namespaceDialogShown
     } = this.getCached();
 
-    let { xml } = this.props;
-
     const modeler = this.getModeler();
 
-    if (isXMLChange(lastXML, xml)) {
-      this.setState({
-        importing: true
-      });
+    let { xml } = this.props;
 
+    this.setState({
+      importing: true
+    });
+
+    try {
       const namespaceFound = await hasNamespaceUrl(xml, NAMESPACE_URL_ACTIVITI);
 
       if (!namespaceDialogShown && namespaceFound) {
@@ -415,10 +421,12 @@ export class BpmnEditor extends CachedComponent {
 
         xml = await this.handleNamespace(xml);
       }
-
-      // TODO(nikku): apply default element templates to initial diagram
-      modeler.importXML(xml, this.ifMounted(this.handleImport));
+    } catch (error) {
+      return this.handleImport(error, []);
     }
+
+    // TODO(nikku): apply default element templates to initial diagram
+    modeler.importXML(xml, this.ifMounted(this.handleImport));
   }
 
   /**
