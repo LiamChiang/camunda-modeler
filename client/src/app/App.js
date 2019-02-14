@@ -1223,6 +1223,16 @@ export class App extends PureComponent {
       activeTab
     } = this.state;
 
+    const actions = {
+      'create-bpmn-diagram': this.createDiagram.bind(this, 'bpmn')
+    };
+
+    const _getAction = (key) => {
+      return (...args) => {
+        actions[key](...args);
+      };
+    };
+
 
     log('App#triggerAction %s %o', action, options);
 
@@ -1238,9 +1248,14 @@ export class App extends PureComponent {
       return;
     }
 
-    if (action === 'create-bpmn-diagram') {
-      return this.createDiagram('bpmn');
+    if (actions[action]) {
+      const _exec = _getAction(action);
+      return _exec();
     }
+
+    /** if (action === 'create-bpmn-diagram') {
+      return this.createDiagram('bpmn');
+    }**/
 
     if (action === 'create-dmn-diagram') {
       return this.createDiagram('dmn');
